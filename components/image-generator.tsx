@@ -47,6 +47,11 @@ export function ImageGenerator() {
   const [generatedImageUrl, setGeneratedImageUrl] = React.useState("")
   const [isGenerating, setIsGenerating] = React.useState(false)
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null)
+  const [testData, setTestData] = React.useState({
+    image: "",
+    ratio: "",
+    apiUrl: ""
+  });
 
   const styles = [
     { value: "포토", label: "포토" },
@@ -77,7 +82,7 @@ export function ImageGenerator() {
     setIsUploadDialogOpen(false)
   }
 
-  const generateImage = async () => {
+  const generateCreateImage = async () => {
     try {
       setIsGenerating(true);
       setErrorMessage(null);
@@ -94,7 +99,7 @@ export function ImageGenerator() {
         user: "abc-123"
       };
 
-      console.log('API 요청:', requestBody);
+      console.log('Create API 요청:', requestBody);
 
       const response = await fetch('https://api-mir.52g.ai/v1/workflows/run', {
         method: 'POST',
@@ -135,6 +140,71 @@ export function ImageGenerator() {
     } catch (error) {
       console.error('이미지 생성 중 상세 오류:', error);
       setErrorMessage(error instanceof Error ? error.message : '이미지 생성 중 오류가 발생했습니다.');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const generateExpandImage = async () => {
+    try {
+      setIsGenerating(true);
+      setErrorMessage(null);
+      setGeneratedImageUrl("");
+      
+      const requestBody = {
+        inputs: {
+          image_url: {
+            type: "image",
+            transfer_method: "remote_url",
+            url: expandImageURL
+          },
+          ratio: ratio
+        },
+        response_mode: "blocking",
+        user: "abc-214"
+      };
+
+      console.log('Expand API 요청:', requestBody);
+
+      const response = await fetch('https://mir-api.52g.ai/v1/workflows/run', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer app-lqhALPmXPUkbyfVLQHvw1YFb',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      console.log('API 응답 상태:', response.status);
+
+      const responseText = await response.text();
+      console.log('API 응답 전문:', responseText);
+
+      if (!response.ok) {
+        throw new Error(`API 요청 실패: ${response.status} ${responseText}`);
+      }
+
+      const data = JSON.parse(responseText);
+      
+      if (data.data?.error) {
+        throw new Error(`API 에러: ${data.data.error}`);
+      }
+
+      if (data.data?.status === 'succeeded') {
+        const imageUrl = data.data.outputs?.result?.[0]?.url || data.data.outputs?.image_url;
+        if (imageUrl) {
+          setGeneratedImageUrl(imageUrl);
+          console.log('생성된 이미지 URL:', imageUrl);
+        } else {
+          throw new Error('이미지 URL을 찾을 수 없습니다.');
+        }
+      } else {
+        throw new Error(`이미지 생성 실패: ${data.data?.status || '알 수 없는 상태'}`);
+      }
+
+    } catch (error) {
+      console.error('이미지 확장 중 상세 오류:', error);
+      setErrorMessage(error instanceof Error ? error.message : '이미지 확장 중 오류가 발생했습니다.');
     } finally {
       setIsGenerating(false);
     }
@@ -220,7 +290,7 @@ export function ImageGenerator() {
             )}
             <Button 
               className="w-full bg-purple-500 hover:bg-purple-600 text-white"
-              onClick={generateImage}
+              onClick={generateCreateImage}
               disabled={isGenerating}
             >
               {isGenerating ? '이미지 생성 중...' : '이미지 생성하기'}
@@ -247,11 +317,29 @@ export function ImageGenerator() {
               </label>
               <Button 
                 variant="outline" 
-                className="w-full h-24 border-dashed"
+                className="w-full min-h-[200px] border-dashed relative overflow-hidden"
                 onClick={() => handleUploadClick('expand')}
               >
-                <Upload className="h-6 w-6 mr-2" />
-                이미지 업로드
+                {expandImageURL ? (
+                  <>
+                    <img 
+                      src={expandImageURL} 
+                      alt="Preview" 
+                      className="absolute inset-0 w-full h-full object-contain"
+                    />
+                    <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+                      <div className="text-white flex flex-col items-center">
+                        <Upload className="h-6 w-6 mb-2" />
+                        이미지 변경하기
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex flex-col items-center">
+                    <Upload className="h-6 w-6 mb-2" />
+                    이미지 업로드
+                  </div>
+                )}
               </Button>
               {expandImageURL && (
                 <div className="mt-2 text-sm text-gray-500">
@@ -296,10 +384,10 @@ export function ImageGenerator() {
             )}
             <Button 
               className="w-full bg-purple-500 hover:bg-purple-600 text-white"
-              onClick={generateImage}
-              disabled={isGenerating}
+              onClick={generateExpandImage}
+              disabled={isGenerating || !expandImageURL}
             >
-              {isGenerating ? '이미지 생성 중...' : '이미지 생성하기'}
+              {isGenerating ? '이미지 확장 중...' : '이미지 확장하기'}
             </Button>
             {generatedImageUrl && (
               <div className="w-full">
@@ -380,7 +468,7 @@ export function ImageGenerator() {
             )}
             <Button 
               className="w-full bg-purple-500 hover:bg-purple-600 text-white"
-              onClick={generateImage}
+              onClick={generateCreateImage}
               disabled={isGenerating}
             >
               {isGenerating ? '이미지 생성 중...' : '이미지 생성하기'}
@@ -463,11 +551,20 @@ export function ImageGenerator() {
           <DialogHeader>
             <DialogTitle>이미지 URL 입력</DialogTitle>
           </DialogHeader>
-          <Input
-            placeholder="https://example.com/image.jpg"
-            value={tempImageURL}
-            onChange={(e) => setTempImageURL(e.target.value)}
-          />
+          <div className="space-y-4">
+            <Input
+              placeholder="https://example.com/image.jpg"
+              value={tempImageURL}
+              onChange={(e) => setTempImageURL(e.target.value)}
+            />
+            <Button 
+              variant="outline" 
+              className="w-full"
+              onClick={() => setTempImageURL("https://maestropasta.cz/wp-content/uploads/2024/06/compressed_img-i414YMRKS1ZYU8NFO81XezLN-1536x878.png")}
+            >
+              Sample Iamge 입력
+            </Button>
+          </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsUploadDialogOpen(false)}>
               취소
