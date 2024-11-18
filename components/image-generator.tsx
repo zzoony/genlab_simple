@@ -44,6 +44,9 @@ export function ImageGenerator() {
   const [imageDescription, setImageDescription] = React.useState("")
   const [style, setStyle] = React.useState("포토")
   const [ratio, setRatio] = React.useState("정사각형")
+  const [generatedImageUrl, setGeneratedImageUrl] = React.useState("")
+  const [isGenerating, setIsGenerating] = React.useState(false)
+  const [errorMessage, setErrorMessage] = React.useState<string | null>(null)
 
   const styles = [
     { value: "포토", label: "포토" },
@@ -73,6 +76,69 @@ export function ImageGenerator() {
     setTempImageURL("")
     setIsUploadDialogOpen(false)
   }
+
+  const generateImage = async () => {
+    try {
+      setIsGenerating(true);
+      setErrorMessage(null);
+      setGeneratedImageUrl("");
+      
+      const requestBody = {
+        inputs: {
+          style: style,
+          ratio: ratio,
+          desc: imageDescription,
+        },
+        query: imageDescription,
+        response_mode: "blocking",
+        user: "abc-123"
+      };
+
+      console.log('API 요청:', requestBody);
+
+      const response = await fetch('https://api-mir.52g.ai/v1/workflows/run', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer app-WLvajoOQ0v9FSicdAMuYAfhB',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      console.log('API 응답 상태:', response.status);
+
+      const responseText = await response.text();
+      console.log('API 응답 전문:', responseText);
+
+      if (!response.ok) {
+        throw new Error(`API 요청 실패: ${response.status} ${responseText}`);
+      }
+
+      const data = JSON.parse(responseText);
+      
+      if (data.data?.error) {
+        throw new Error(`API 에러: ${data.data.error}`);
+      }
+
+      if (data.data?.status === 'succeeded') {
+        const imageUrl = data.data.outputs.result[0].url;
+        if (imageUrl) {
+          setGeneratedImageUrl(imageUrl);
+          console.log('생성된 이미지 URL:', imageUrl);
+        } else {
+          throw new Error('이미지 URL을 찾을 수 없습니다.');
+        }
+      } else {
+        throw new Error(`이미지 생성 실패: ${data.data?.status || '알 수 없는 상태'}`);
+      }
+
+    } catch (error) {
+      console.error('이미지 생성 중 상세 오류:', error);
+      setErrorMessage(error instanceof Error ? error.message : '이미지 생성 중 오류가 발생했습니다.');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   const renderContent = () => {
     if (selectedIcon === 'edit') {
@@ -146,10 +212,28 @@ export function ImageGenerator() {
               </DropdownMenu>
             </div>
           </CardContent>
-          <CardFooter>
-            <Button className="w-full bg-purple-500 hover:bg-purple-600 text-white">
-              이미지 생성하기
+          <CardFooter className="flex flex-col gap-4">
+            {errorMessage && (
+              <div className="text-red-500 text-sm">
+                {errorMessage}
+              </div>
+            )}
+            <Button 
+              className="w-full bg-purple-500 hover:bg-purple-600 text-white"
+              onClick={generateImage}
+              disabled={isGenerating}
+            >
+              {isGenerating ? '이미지 생성 중...' : '이미지 생성하기'}
             </Button>
+            {generatedImageUrl && (
+              <div className="w-full">
+                <img 
+                  src={generatedImageUrl} 
+                  alt="Generated Image" 
+                  className="w-full rounded-lg shadow-lg"
+                />
+              </div>
+            )}
           </CardFooter>
         </Card>
       )
@@ -204,10 +288,28 @@ export function ImageGenerator() {
               </DropdownMenu>
             </div>
           </CardContent>
-          <CardFooter>
-            <Button className="w-full bg-purple-500 hover:bg-purple-600 text-white">
-              이미지 생성하기
+          <CardFooter className="flex flex-col gap-4">
+            {errorMessage && (
+              <div className="text-red-500 text-sm">
+                {errorMessage}
+              </div>
+            )}
+            <Button 
+              className="w-full bg-purple-500 hover:bg-purple-600 text-white"
+              onClick={generateImage}
+              disabled={isGenerating}
+            >
+              {isGenerating ? '이미지 생성 중...' : '이미지 생성하기'}
             </Button>
+            {generatedImageUrl && (
+              <div className="w-full">
+                <img 
+                  src={generatedImageUrl} 
+                  alt="Generated Image" 
+                  className="w-full rounded-lg shadow-lg"
+                />
+              </div>
+            )}
           </CardFooter>
         </Card>
       )
@@ -270,10 +372,28 @@ export function ImageGenerator() {
               )}
             </div>
           </CardContent>
-          <CardFooter>
-            <Button className="w-full bg-purple-500 hover:bg-purple-600 text-white">
-              이미지 생성하기
+          <CardFooter className="flex flex-col gap-4">
+            {errorMessage && (
+              <div className="text-red-500 text-sm">
+                {errorMessage}
+              </div>
+            )}
+            <Button 
+              className="w-full bg-purple-500 hover:bg-purple-600 text-white"
+              onClick={generateImage}
+              disabled={isGenerating}
+            >
+              {isGenerating ? '이미지 생성 중...' : '이미지 생성하기'}
             </Button>
+            {generatedImageUrl && (
+              <div className="w-full">
+                <img 
+                  src={generatedImageUrl} 
+                  alt="Generated Image" 
+                  className="w-full rounded-lg shadow-lg"
+                />
+              </div>
+            )}
           </CardFooter>
         </Card>
       )
@@ -312,9 +432,10 @@ export function ImageGenerator() {
           </Button>
           <Button
             variant="link"
-            className={`w-16 h-20 p-0 text-white hover:text-white ${selectedIcon === 'clock' ? 'font-bold' : ''} flex flex-col items-center justify-center`}
+            className={`w-16 h-20 p-0 text-gray-500 hover:text-gray-500 cursor-not-allowed ${selectedIcon === 'clock' ? 'font-bold' : ''} flex flex-col items-center justify-center`}
             onClick={() => setSelectedIcon('clock')}
             aria-label="History"
+            disabled={true}
           >
             <Clock className="h-6 w-6 mb-1" />
             <span className="text-xs">History</span>
