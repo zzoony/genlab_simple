@@ -47,11 +47,6 @@ export function ImageGenerator() {
   const [generatedImageUrl, setGeneratedImageUrl] = React.useState("")
   const [isGenerating, setIsGenerating] = React.useState(false)
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null)
-  const [testData, setTestData] = React.useState({
-    image: "",
-    ratio: "",
-    apiUrl: ""
-  });
 
   const styles = [
     { value: "포토", label: "포토" },
